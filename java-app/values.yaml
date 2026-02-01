@@ -1,0 +1,15 @@
+replicaCount: 1
+
+image:
+  repository: acrshyam.azurecr.io/poc-10
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer
+  port: 8080
+
+containerPort: 8080
+
+resources: {}
+
