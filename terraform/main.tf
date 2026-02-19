@@ -7,14 +7,6 @@ data "azurerm_resource_group" "devops" {
 }
 
 ############################################
-# Variable for dynamic IP (from Jenkins)
-############################################
-
-variable "authorized_ip" {
-  type = string
-}
-
-############################################
 # AKS Cluster - Minimal Configuration
 ############################################
 
