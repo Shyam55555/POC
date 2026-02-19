@@ -1,14 +1,13 @@
-resource "azurerm_resource_group" "poc21_rg" {
-  name     = "POC-21-rg"
-  location = "Central India"
+data "azurerm_resource_group" "devops_rg" {
+  name = "devops"
 }
 
 resource "azurerm_kubernetes_cluster" "poc21_aks" {
 
   name                = "POC-21-aks"
-  location            = azurerm_resource_group.poc21_rg.location
-  resource_group_name = azurerm_resource_group.poc21_rg.name
-  dns_prefix          = "poc21"
+  location            = "East US"
+  resource_group_name = data.azurerm_resource_group.devops_rg.name
+  dns_prefix          = "poc-21-dns"
 
   # ✅ FIX 1: Enable RBAC
   role_based_access_control_enabled = true
@@ -16,7 +15,7 @@ resource "azurerm_kubernetes_cluster" "poc21_aks" {
   default_node_pool {
     name            = "poc21node"
     node_count      = 2
-    vm_size         = "Standard_B2s"
+    vm_size         = "Standard_D2als_v6"
     os_disk_size_gb = 30
   }
 
