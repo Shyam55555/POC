@@ -27,7 +27,7 @@ resource "azurerm_kubernetes_cluster" "poc21_aks" {
   # ✅ FIX 2: Restrict API Server Access
   api_server_access_profile {
     authorized_ip_ranges = [
-      "YOUR_PUBLIC_IP/32"
+      var.authorized_ip
     ]
   }
 
