@@ -7,6 +7,15 @@ data "azurerm_resource_group" "devops" {
 }
 
 ############################################
+# Variable for dynamic IP (from Jenkins)
+############################################
+
+variable "authorized_ip" {
+  description = "Authorized IP address for AKS API access"
+  type        = string
+}
+
+############################################
 # AKS Cluster: poc-21
 ############################################
 
@@ -17,11 +26,7 @@ resource "azurerm_kubernetes_cluster" "poc21" {
   resource_group_name = data.azurerm_resource_group.devops.name
   dns_prefix          = "poc-21-dns"
 
-  kubernetes_version  = "1.33.6"
-
-  #########################################
-  # SKU / Pricing Tier
-  #########################################
+  kubernetes_version = "1.33.6"
 
   sku_tier = "Free"
 
@@ -47,23 +52,36 @@ resource "azurerm_kubernetes_cluster" "poc21" {
     type = "VirtualMachineScaleSets"
 
     os_disk_size_gb = 30
-
   }
 
   #########################################
-  # RBAC
+  # RBAC (Fix AZU-0042)
   #########################################
 
   role_based_access_control_enabled = true
 
   #########################################
-  # Network Configuration
+  # API Server Access Restriction (Fix AZU-0041)
+  #########################################
+
+  api_server_access_profile {
+
+    authorized_ip_ranges = [
+      var.authorized_ip
+    ]
+
+  }
+
+  #########################################
+  # Network Profile (Azure CNI Overlay)
   #########################################
 
   network_profile {
 
-    network_plugin = "azure"
+    network_plugin      = "azure"
     network_plugin_mode = "overlay"
+
+    network_policy      = "azure"   # FIX AZU-0043
 
     pod_cidr       = "10.244.0.0/16"
     service_cidr   = "10.0.0.0/16"
