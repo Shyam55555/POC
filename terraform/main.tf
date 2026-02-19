@@ -1,44 +1,85 @@
-data "azurerm_resource_group" "devops_rg" {
+############################################
+# Existing Resource Group
+############################################
+
+data "azurerm_resource_group" "devops" {
   name = "devops"
 }
 
-resource "azurerm_kubernetes_cluster" "poc21_aks" {
+############################################
+# AKS Cluster: poc-21
+############################################
 
-  name                = "POC-21-aks"
+resource "azurerm_kubernetes_cluster" "poc21" {
+
+  name                = "poc-21"
   location            = "East US"
-  resource_group_name = data.azurerm_resource_group.devops_rg.name
+  resource_group_name = data.azurerm_resource_group.devops.name
   dns_prefix          = "poc-21-dns"
 
-  # ✅ FIX 1: Enable RBAC
-  role_based_access_control_enabled = true
+  kubernetes_version  = "1.33.6"
 
-  default_node_pool {
-    name            = "poc21node"
-    node_count      = 2
-    vm_size         = "Standard_D2als_v6"
-    os_disk_size_gb = 30
-  }
+  #########################################
+  # SKU / Pricing Tier
+  #########################################
+
+  sku_tier = "Free"
+
+  #########################################
+  # Identity
+  #########################################
 
   identity {
     type = "SystemAssigned"
   }
 
-  # ✅ FIX 2: Restrict API Server Access
-  api_server_access_profile {
-    authorized_ip_ranges = [
-      var.authorized_ip
-    ]
+  #########################################
+  # Node Pool
+  #########################################
+
+  default_node_pool {
+
+    name       = "nodepool1"
+    node_count = 1
+
+    vm_size = "Standard_D2als_v6"
+
+    type = "VirtualMachineScaleSets"
+
+    os_disk_size_gb = 30
+
   }
 
-  # ✅ FIX 3: Enable Network Policy
+  #########################################
+  # RBAC
+  #########################################
+
+  role_based_access_control_enabled = true
+
+  #########################################
+  # Network Configuration
+  #########################################
+
   network_profile {
-    network_plugin    = "azure"
-    network_policy    = "azure"
+
+    network_plugin = "azure"
+    network_plugin_mode = "overlay"
+
+    pod_cidr       = "10.244.0.0/16"
+    service_cidr   = "10.0.0.0/16"
+    dns_service_ip = "10.0.0.10"
+
     load_balancer_sku = "standard"
+
   }
+
+  #########################################
+  # Tags
+  #########################################
 
   tags = {
-    Environment = "POC-21"
     Project     = "POC-21"
+    Environment = "POC-21"
   }
+
 }
