@@ -1,55 +1,92 @@
-############################################
-# Use existing Resource Group
-############################################
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "java-app.fullname" . }}
+  labels:
+    app: {{ include "java-app.name" . }}
+    chart: {{ include "java-app.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "java-app.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "java-app.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      # ---- POD-LEVEL SECURITY CONTEXT (Fixes KSV-0118) ----
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
 
-data "azurerm_resource_group" "devops" {
-  name = "devops"
-}
+      # ---- VOLUMES: Writable areas required by Tomcat under read-only root FS ----
+      volumes:
+        - name: tomcat-logs
+          emptyDir: {}
+        - name: tomcat-work
+          emptyDir: {}
+        - name: tomcat-temp
+          emptyDir: {}
+        - name: tomcat-webapps
+          emptyDir: {}
 
-############################################
-# AKS Cluster - Minimal Configuration
-############################################
+      containers:
+        - name: {{ include "java-app.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
 
-resource "azurerm_kubernetes_cluster" "poc21" {
+          # ---- CONTAINER-LEVEL SECURITY CONTEXT (Fixes KSV-0118 & KSV-0014) ----
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop:
+                - ALL
 
-  name                = "poc-21"
-  location            = data.azurerm_resource_group.devops.location
-  resource_group_name = data.azurerm_resource_group.devops.name
-  dns_prefix          = "poc-21-dns"
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
 
-  ##################################
-  # Identity
-  ##################################
+          # ---- OPTIONAL: Probes (use a non-JSP endpoint if possible) ----
+          # livenessProbe:
+          #   httpGet:
+          #     path: /health
+          #     port: http
+          #   initialDelaySeconds: 30
+          #   periodSeconds: 10
+          # readinessProbe:
+          #   httpGet:
+          #     path: /health
+          #     port: http
+          #   initialDelaySeconds: 10
+          #   periodSeconds: 5
 
-  identity {
-    type = "SystemAssigned"
-  }
+          # ---- MOUNTS: Map writable volumes to Tomcat required paths ----
+          volumeMounts:
+            - name: tomcat-logs
+              mountPath: /usr/local/tomcat/logs
+            - name: tomcat-work
+              mountPath: /usr/local/tomcat/work
+            - name: tomcat-temp
+              mountPath: /usr/local/tomcat/temp
+            - name: tomcat-webapps
+              mountPath: /usr/local/tomcat/webapps
 
-  ##################################
-  # Node Pool
-  ##################################
+          # ---- OPTIONAL: Set JVM/Tomcat env if needed ----
+          # env:
+          #   - name: JAVA_OPTS
+          #     value: "-Xms512m -Xmx512m"
+          #   - name: CATALINA_OPTS
+          #     value: ""
 
-  default_node_pool {
-    name       = "nodepool1"
-    node_count = 1
-    vm_size    = "Standard_D2als_v6"
-  }
-
-  ##################################
-  # Security fixes (required for Trivy)
-  ##################################
-
-  role_based_access_control_enabled = true
-
-  api_server_access_profile {
-    authorized_ip_ranges = [
-      var.authorized_ip
-    ]
-  }
-
-  network_profile {
-    network_plugin = "azure"
-    network_policy = "azure"
-  }
-
-}
+      # ---- OPTIONAL: ImagePullSecrets if your registry is private ----
+      # imagePullSecrets:
+      #   - name: {{ .Values.imagePullSecret | default "" }}
