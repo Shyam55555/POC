@@ -22,14 +22,27 @@ spec:
 
       
       # If you want to explicitly create the ROOT dir before Tomcat starts ----
-      # initContainers:
-      #   - name: prepare-webapps-root
-      #     image: busybox:1.36
-      #     command: ["sh", "-c", "mkdir -p /usr/local/tomcat/webapps/ROOT && chmod 0775 /usr/local/tomcat/webapps/ROOT"]
-      #     volumeMounts:
-      #       - name: tomcat-root
-      #         mountPath: /usr/local/tomcat/webapps/ROOT
-
+      
+      initContainers:
+        - name: fix-perms-webapps-root
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            capabilities:
+              drop: ["ALL"]
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              # Ensure group ownership and group write on the mount
+              chgrp -R 1001 /usr/local/tomcat/webapps/ROOT || true
+              chmod -R g+w /usr/local/tomcat/webapps/ROOT || true
 
       # ---- VOLUMES: Writable areas required by Tomcat under read-only root FS ----
       volumes:
