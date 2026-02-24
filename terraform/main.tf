@@ -1,26 +1,92 @@
-resource "azurerm_resource_group" "poc21_rg" {
-  name     = "POC-21-rg"
-  location = "Central India"
-}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "java-app.fullname" . }}
+  labels:
+    app: {{ include "java-app.name" . }}
+    chart: {{ include "java-app.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "java-app.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "java-app.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      # ---- POD-LEVEL SECURITY CONTEXT (Fixes KSV-0118) ----
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
 
-resource "azurerm_kubernetes_cluster" "poc21_aks" {
-  name                = "POC-21-aks"
-  location            = azurerm_resource_group.poc21_rg.location
-  resource_group_name = azurerm_resource_group.poc21_rg.name
-  dns_prefix          = "poc21"
+      # ---- VOLUMES: Writable areas required by Tomcat under read-only root FS ----
+      volumes:
+        - name: tomcat-logs
+          emptyDir: {}
+        - name: tomcat-work
+          emptyDir: {}
+        - name: tomcat-temp
+          emptyDir: {}
+        - name: tomcat-webapps
+          emptyDir: {}
 
-  default_node_pool {
-    name       = "poc21node"
-    node_count = 2
-    vm_size    = "Standard_B2s"
-  }
+      containers:
+        - name: {{ include "java-app.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
 
-  identity {
-    type = "SystemAssigned"
-  }
+          # ---- CONTAINER-LEVEL SECURITY CONTEXT (Fixes KSV-0118 & KSV-0014) ----
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop:
+                - ALL
 
-  tags = {
-    Environment = "POC-21"
-    Project     = "POC-21"
-  }
-}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+
+          # ---- OPTIONAL: Probes (use a non-JSP endpoint if possible) ----
+          # livenessProbe:
+          #   httpGet:
+          #     path: /health
+          #     port: http
+          #   initialDelaySeconds: 30
+          #   periodSeconds: 10
+          # readinessProbe:
+          #   httpGet:
+          #     path: /health
+          #     port: http
+          #   initialDelaySeconds: 10
+          #   periodSeconds: 5
+
+          # ---- MOUNTS: Map writable volumes to Tomcat required paths ----
+          volumeMounts:
+            - name: tomcat-logs
+              mountPath: /usr/local/tomcat/logs
+            - name: tomcat-work
+              mountPath: /usr/local/tomcat/work
+            - name: tomcat-temp
+              mountPath: /usr/local/tomcat/temp
+            - name: tomcat-webapps
+              mountPath: /usr/local/tomcat/webapps
+
+          # ---- OPTIONAL: Set JVM/Tomcat env if needed ----
+          # env:
+          #   - name: JAVA_OPTS
+          #     value: "-Xms512m -Xmx512m"
+          #   - name: CATALINA_OPTS
+          #     value: ""
+
+      # ---- OPTIONAL: ImagePullSecrets if your registry is private ----
+      # imagePullSecrets:
+      #   - name: {{ .Values.imagePullSecret | default "" }}
