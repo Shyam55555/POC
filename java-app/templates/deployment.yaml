@@ -4,29 +4,34 @@ metadata:
   name: {{ include "java-app.fullname" . }}
   labels:
     app: {{ include "java-app.name" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: {{ include "java-app.name" . }}
+      release: {{ .Release.Name }}
   template:
     metadata:
       labels:
         app: {{ include "java-app.name" . }}
+        release: {{ .Release.Name }}
     spec:
-      # ---- POD-LEVEL SECURITY CONTEXT (Fixes KSV-0118) ----
+      # ---- POD-LEVEL SECURITY CONTEXT ----
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
+        runAsGroup: 1001
         fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
 
-      
-      # If you want to explicitly create the ROOT dir before Tomcat starts ----
-      
+      # ---- INIT: Expand ROOT.war into the mounted ROOT/ dir and fix perms ----
       initContainers:
-        - name: fix-perms-webapps-root
-          image: busybox:1.36
-          imagePullPolicy: IfNotPresent
+        - name: expand-root-war
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -40,11 +45,30 @@ spec:
             - -c
             - |
               set -eu
-              # Ensure group ownership and group write on the mount
-              chgrp -R 1001 /usr/local/tomcat/webapps/ROOT || true
-              chmod -R g+w /usr/local/tomcat/webapps/ROOT || true
+              # Create mount target and ensure writeable by our UID/GID
+              mkdir -p /usr/local/tomcat/webapps/ROOT
+              chown -R 1001:1001 /usr/local/tomcat/webapps/ROOT
+              chmod -R g+w /usr/local/tomcat/webapps/ROOT
 
-      # ---- VOLUMES: Writable areas required by Tomcat under read-only root FS ----
+              # Only unpack if ROOT/ is empty
+              if [ -z "$(ls -A /usr/local/tomcat/webapps/ROOT 2>/dev/null || true)" ]; then
+                if command -v jar >/dev/null 2>&1; then
+                  cd /usr/local/tomcat/webapps/ROOT
+                  jar xf /usr/local/tomcat/webapps/ROOT.war
+                elif command -v unzip >/dev/null 2>&1; then
+                  unzip -o /usr/local/tomcat/webapps/ROOT.war -d /usr/local/tomcat/webapps/ROOT
+                else
+                  echo "No jar or unzip available to expand WAR" >&2
+                  exit 1
+                fi
+                chown -R 1001:1001 /usr/local/tomcat/webapps/ROOT
+                chmod -R g+w /usr/local/tomcat/webapps/ROOT
+              fi
+          volumeMounts:
+            - name: tomcat-root
+              mountPath: /usr/local/tomcat/webapps/ROOT
+
+      # ---- VOLUMES: Writable areas required by Tomcat ----
       volumes:
         - name: tomcat-logs
           emptyDir: {}
@@ -53,28 +77,27 @@ spec:
         - name: tomcat-temp
           emptyDir: {}
         - name: tomcat-root
-          emptyDir: {} 
-    
+          emptyDir: {}
+
       containers:
         - name: {{ include "java-app.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
 
-          # ---- CONTAINER-LEVEL SECURITY CONTEXT (Fixes KSV-0118 & KSV-0014) ----
+          # ---- CONTAINER-LEVEL SECURITY CONTEXT ----
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
             runAsUser: 1001
             capabilities:
-              drop:
-                - ALL
+              drop: ["ALL"]
 
           ports:
             - name: http
-              containerPort: {{ .Values.containerPort }}
+              containerPort: {{ .Values.containerPort | default 8080 }}
 
-          # ---- OPTIONAL: Probes (use a non-JSP endpoint if possible) ----
+          # ---- Optional but recommended: add probes to a lightweight endpoint ----
           # livenessProbe:
           #   httpGet:
           #     path: /health
@@ -88,7 +111,6 @@ spec:
           #   initialDelaySeconds: 10
           #   periodSeconds: 5
 
-          # ---- MOUNTS: Map writable volumes to Tomcat required paths ----
           volumeMounts:
             - name: tomcat-logs
               mountPath: /usr/local/tomcat/logs
@@ -96,16 +118,6 @@ spec:
               mountPath: /usr/local/tomcat/work
             - name: tomcat-temp
               mountPath: /usr/local/tomcat/temp
+            # Mount ONLY the ROOT folder to keep ROOT.war visible in /usr/local/tomcat/webapps
             - name: tomcat-root
               mountPath: /usr/local/tomcat/webapps/ROOT
-
-          # ---- OPTIONAL: Set JVM/Tomcat env if needed ----
-          # env:
-          #   - name: JAVA_OPTS
-          #     value: "-Xms512m -Xmx512m"
-          #   - name: CATALINA_OPTS
-          #     value: ""
-
-      # ---- OPTIONAL: ImagePullSecrets if your registry is private ----
-      # imagePullSecrets:
-      #   - name: {{ .Values.imagePullSecret | default "" }}
