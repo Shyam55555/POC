@@ -4,20 +4,15 @@ metadata:
   name: {{ include "java-app.fullname" . }}
   labels:
     app: {{ include "java-app.name" . }}
-    chart: {{ include "java-app.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: {{ include "java-app.name" . }}
-      release: {{ .Release.Name }}
   template:
     metadata:
       labels:
         app: {{ include "java-app.name" . }}
-        release: {{ .Release.Name }}
     spec:
       # ---- POD-LEVEL SECURITY CONTEXT (Fixes KSV-0118) ----
       securityContext:
