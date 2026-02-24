@@ -1,6 +1,0 @@
-replicaCount: 1
-image:
-  repository: <your-image>
-  tag: <your-tag>
-  pullPolicy: IfNotPresent
-containerPort: 8080   # or your app's port
