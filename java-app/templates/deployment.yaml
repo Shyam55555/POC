@@ -14,9 +14,74 @@ spec:
       labels:
         app: {{ include "java-app.name" . }}
     spec:
+      # ---- POD-LEVEL SECURITY CONTEXT (Fixes KSV-0118) ----
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+
+      # ---- VOLUMES: Writable areas required by Tomcat under read-only root FS ----
+      volumes:
+        - name: tomcat-logs
+          emptyDir: {}
+        - name: tomcat-work
+          emptyDir: {}
+        - name: tomcat-temp
+          emptyDir: {}
+        - name: tomcat-webapps
+          emptyDir: {}
+
       containers:
         - name: {{ include "java-app.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          # ---- CONTAINER-LEVEL SECURITY CONTEXT (Fixes KSV-0118 & KSV-0014) ----
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop:
+                - ALL
+
           ports:
-            - containerPort: {{ .Values.containerPort }}
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+
+          # ---- OPTIONAL: Probes (use a non-JSP endpoint if possible) ----
+          # livenessProbe:
+          #   httpGet:
+          #     path: /health
+          #     port: http
+          #   initialDelaySeconds: 30
+          #   periodSeconds: 10
+          # readinessProbe:
+          #   httpGet:
+          #     path: /health
+          #     port: http
+          #   initialDelaySeconds: 10
+          #   periodSeconds: 5
+
+          # ---- MOUNTS: Map writable volumes to Tomcat required paths ----
+          volumeMounts:
+            - name: tomcat-logs
+              mountPath: /usr/local/tomcat/logs
+            - name: tomcat-work
+              mountPath: /usr/local/tomcat/work
+            - name: tomcat-temp
+              mountPath: /usr/local/tomcat/temp
+            - name: tomcat-webapps
+              mountPath: /usr/local/tomcat/webapps
+
+          # ---- OPTIONAL: Set JVM/Tomcat env if needed ----
+          # env:
+          #   - name: JAVA_OPTS
+          #     value: "-Xms512m -Xmx512m"
+          #   - name: CATALINA_OPTS
+          #     value: ""
+
+      # ---- OPTIONAL: ImagePullSecrets if your registry is private ----
+      # imagePullSecrets:
+      #   - name: {{ .Values.imagePullSecret | default "" }}
