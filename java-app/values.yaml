@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: acrshyam.azurecr.io/poc-10
+  repository: acrshyam.azurecr.io/poc-21
   tag: "latest"
   pullPolicy: IfNotPresent
 
