@@ -4,120 +4,19 @@ metadata:
   name: {{ include "java-app.fullname" . }}
   labels:
     app: {{ include "java-app.name" . }}
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: {{ include "java-app.name" . }}
-      release: {{ .Release.Name }}
   template:
     metadata:
       labels:
         app: {{ include "java-app.name" . }}
-        release: {{ .Release.Name }}
     spec:
-      # ---- POD-LEVEL SECURITY CONTEXT ----
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
-        fsGroupChangePolicy: OnRootMismatch
-
-      # ---- INIT: Expand ROOT.war into the mounted ROOT/ dir and fix perms ----
-      initContainers:
-        - name: expand-root-war
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            runAsUser: 1001
-            runAsGroup: 1001
-            capabilities:
-              drop: ["ALL"]
-          command:
-            - sh
-            - -c
-            - |
-              set -eu
-              # Create mount target and ensure writeable by our UID/GID
-              mkdir -p /usr/local/tomcat/webapps/ROOT
-              chown -R 1001:1001 /usr/local/tomcat/webapps/ROOT
-              chmod -R g+w /usr/local/tomcat/webapps/ROOT
-
-              # Only unpack if ROOT/ is empty
-              if [ -z "$(ls -A /usr/local/tomcat/webapps/ROOT 2>/dev/null || true)" ]; then
-                if command -v jar >/dev/null 2>&1; then
-                  cd /usr/local/tomcat/webapps/ROOT
-                  jar xf /usr/local/tomcat/webapps/ROOT.war
-                elif command -v unzip >/dev/null 2>&1; then
-                  unzip -o /usr/local/tomcat/webapps/ROOT.war -d /usr/local/tomcat/webapps/ROOT
-                else
-                  echo "No jar or unzip available to expand WAR" >&2
-                  exit 1
-                fi
-                chown -R 1001:1001 /usr/local/tomcat/webapps/ROOT
-                chmod -R g+w /usr/local/tomcat/webapps/ROOT
-              fi
-          volumeMounts:
-            - name: tomcat-root
-              mountPath: /usr/local/tomcat/webapps/ROOT
-
-      # ---- VOLUMES: Writable areas required by Tomcat ----
-      volumes:
-        - name: tomcat-logs
-          emptyDir: {}
-        - name: tomcat-work
-          emptyDir: {}
-        - name: tomcat-temp
-          emptyDir: {}
-        - name: tomcat-root
-          emptyDir: {}
-
       containers:
         - name: {{ include "java-app.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
-
-          # ---- CONTAINER-LEVEL SECURITY CONTEXT ----
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            runAsUser: 1001
-            capabilities:
-              drop: ["ALL"]
-
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - name: http
-              containerPort: {{ .Values.containerPort | default 8080 }}
-
-          # ---- Optional but recommended: add probes to a lightweight endpoint ----
-          # livenessProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: http
-          #   initialDelaySeconds: 30
-          #   periodSeconds: 10
-          # readinessProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: http
-          #   initialDelaySeconds: 10
-          #   periodSeconds: 5
-
-          volumeMounts:
-            - name: tomcat-logs
-              mountPath: /usr/local/tomcat/logs
-            - name: tomcat-work
-              mountPath: /usr/local/tomcat/work
-            - name: tomcat-temp
-              mountPath: /usr/local/tomcat/temp
-            # Mount ONLY the ROOT folder to keep ROOT.war visible in /usr/local/tomcat/webapps
-            - name: tomcat-root
-              mountPath: /usr/local/tomcat/webapps/ROOT
+            - containerPort: {{ .Values.containerPort }}
