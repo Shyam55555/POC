@@ -1,4 +1,5 @@
 FROM tomcat:9.0-jdk17-corretto
+ARG BUILD_NUMBER
 
 ENV CATALINA_HOME=/usr/local/tomcat
 WORKDIR ${CATALINA_HOME}
@@ -21,7 +22,7 @@ RUN set -eux; \
     mkdir -p /home/tomcat
 
 # Copy WAR as ROOT.war with correct ownership (use numeric IDs to avoid name resolution)
-COPY --chown=1000:1000 target/LoginPage.war "${CATALINA_HOME}/webapps/ROOT.war"
+COPY --chown=1000:1000 ${BUILD_NUMBER}.war "${CATALINA_HOME}/webapps/ROOT.war"
 
 # Ensure Tomcat directories are owned by UID/GID 1000
 RUN set -eux; \
@@ -33,3 +34,4 @@ USER 1000
 
 EXPOSE 8080
 CMD ["catalina.sh", "run"]
+
