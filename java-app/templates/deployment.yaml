@@ -21,15 +21,15 @@ spec:
         fsGroup: 1001
 
       # ---- VOLUMES: Writable areas required by Tomcat under read-only root FS ----
-      volumes:
-        - name: tomcat-logs
-          emptyDir: {}
-        - name: tomcat-work
-          emptyDir: {}
-        - name: tomcat-temp
-          emptyDir: {}
-        - name: tomcat-webapps
-          emptyDir: {}
+     # volumes:
+     #   - name: tomcat-logs
+     #     emptyDir: {}
+     #   - name: tomcat-work
+     #     emptyDir: {}
+     #   - name: tomcat-temp
+     #     emptyDir: {}
+     #   - name: tomcat-webapps
+     #     emptyDir: {}
 
       containers:
         - name: {{ include "java-app.name" . }}
@@ -65,15 +65,15 @@ spec:
           #   periodSeconds: 5
 
           # ---- MOUNTS: Map writable volumes to Tomcat required paths ----
-          volumeMounts:
-            - name: tomcat-logs
-              mountPath: /usr/local/tomcat/logs
-            - name: tomcat-work
-              mountPath: /usr/local/tomcat/work
-            - name: tomcat-temp
-              mountPath: /usr/local/tomcat/temp
-            - name: tomcat-webapps
-              mountPath: /usr/local/tomcat/webapps
+          #volumeMounts:
+          #  - name: tomcat-logs
+          #    mountPath: /usr/local/tomcat/logs
+          #  - name: tomcat-work
+          #    mountPath: /usr/local/tomcat/work
+          #  - name: tomcat-temp
+          #    mountPath: /usr/local/tomcat/temp
+          #  - name: tomcat-webapps
+          #    mountPath: /usr/local/tomcat/webapps
 
           # ---- OPTIONAL: Set JVM/Tomcat env if needed ----
           # env:
