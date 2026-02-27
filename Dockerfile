@@ -1,37 +1,34 @@
-
 FROM tomcat:9.0-jdk17-corretto
 
-# ---- Create non-root 'tomcat' user and group (id 1000) if absent ----
-# Works across Debian/Ubuntu/AL2 and Alpine-like images
-RUN set -eux; \
-    if ! getent group tomcat >/dev/null 2>&1; then \
-        if command -v groupadd >/dev/null 2>&1; then groupadd -g 1000 tomcat; \
-        elif command -v addgroup >/dev/null 2>&1; then addgroup -g 1000 -S tomcat; \
-        else echo "No groupadd/addgroup found" && exit 1; fi; \
-    fi; \
-    if ! id -u tomcat >/dev/null 2>&1; then \
-        if command -v useradd >/dev/null 2>&1; then useradd -r -u 1000 -g tomcat -d /home/tomcat -m -s /sbin/nologin tomcat; \
-        elif command -v adduser >/dev/null 2>&1; then adduser -S -u 1000 -G tomcat -h /home/tomcat tomcat; \
-        else echo "No useradd/adduser found" && exit 1; fi; \
-    fi
-
 ENV CATALINA_HOME=/usr/local/tomcat
-WORKDIR /usr/local/tomcat
+WORKDIR ${CATALINA_HOME}
 
-# Remove default ROOT app (if present)
+# Remove default ROOT app (ignore errors if not present)
 RUN rm -rf "${CATALINA_HOME}/webapps/ROOT" || true
 
-# Copy WAR (as ROOT.war) – use numeric chown to avoid relying on name resolution during build
+# (Optional but recommended) Create a minimal tomcat user/group entry
+# without relying on useradd/groupadd tools.
+# UID/GID 1000 is a common non-root choice; change if your org enforces a specific ID.
+RUN set -eux; \
+    # Create group entry if not present
+    if ! grep -qE '^tomcat:' /etc/group; then \
+        echo 'tomcat:x:1000:' >> /etc/group; \
+    fi; \
+    # Create passwd entry if not present
+    if ! grep -qE '^tomcat:' /etc/passwd; then \
+        echo 'tomcat:x:1000:1000:Tomcat:/home/tomcat:/sbin/nologin' >> /etc/passwd; \
+    fi; \
+    mkdir -p /home/tomcat
+
+# Copy WAR as ROOT.war with correct ownership (use numeric IDs to avoid name resolution)
 COPY --chown=1000:1000 target/LoginPage.war "${CATALINA_HOME}/webapps/ROOT.war"
 
-# Ensure permissions on Tomcat dirs required for runtime writes
-# (webapps, work, temp, logs)
+# Ensure Tomcat directories are owned by UID/GID 1000
 RUN set -eux; \
-    chown -R 1000:1000 "${CATALINA_HOME}"; \
     mkdir -p "${CATALINA_HOME}/webapps" "${CATALINA_HOME}/work" "${CATALINA_HOME}/temp" "${CATALINA_HOME}/logs"; \
-    chown -R 1000:1000 "${CATALINA_HOME}/webapps" "${CATALINA_HOME}/work" "${CATALINA_HOME}/temp" "${CATALINA_HOME}/logs"
+    chown -R 1000:1000 "${CATALINA_HOME}" /home/tomcat
 
-# Switch to non-root user
+# Switch to non-root numeric UID (no need for useradd)
 USER 1000
 
 EXPOSE 8080
