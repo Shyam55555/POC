@@ -28,8 +28,8 @@ spec:
           emptyDir: {}
         - name: tomcat-temp
           emptyDir: {}
-        - name: tomcat-webapps
-          emptyDir: {}
+       # - name: tomcat-webapps
+       #   emptyDir: {}
 
       containers:
         - name: {{ include "java-app.name" . }}
@@ -72,8 +72,8 @@ spec:
               mountPath: /usr/local/tomcat/work
             - name: tomcat-temp
               mountPath: /usr/local/tomcat/temp
-            - name: tomcat-webapps
-              mountPath: /usr/local/tomcat/webapps
+       #     - name: tomcat-webapps
+       #       mountPath: /usr/local/tomcat/webapps
 
           # ---- OPTIONAL: Set JVM/Tomcat env if needed ----
           # env:
