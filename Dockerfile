@@ -20,6 +20,7 @@ RUN set -eux; \
         echo 'tomcat:x:1000:1000:Tomcat:/home/tomcat:/sbin/nologin' >> /etc/passwd; \
     fi; \
     mkdir -p /home/tomcat
+    echo ${BUILD_NUMBER}
 
 # Copy WAR as ROOT.war with correct ownership (use numeric IDs to avoid name resolution)
 COPY --chown=1000:1000 ${BUILD_NUMBER} "${CATALINA_HOME}/webapps/ROOT.war"
@@ -34,5 +35,6 @@ USER 1000
 
 EXPOSE 8080
 CMD ["catalina.sh", "run"]
+
 
 
