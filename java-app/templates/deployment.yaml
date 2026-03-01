@@ -20,8 +20,8 @@ spec:
         runAsUser: 1001
         fsGroup: 1001
 
-     # ---- VOLUMES: Writable areas required by Tomcat under read-only root FS ----
-     volumes:
+      # ---- VOLUMES: Writable areas required by Tomcat under read-only root FS ----
+      volumes:
         - name: tomcat-logs
           emptyDir: {}
         - name: tomcat-work
