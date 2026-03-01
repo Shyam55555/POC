@@ -39,7 +39,7 @@ spec:
           # ---- CONTAINER-LEVEL SECURITY CONTEXT (Fixes KSV-0118 & KSV-0014) ----
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
+           # readOnlyRootFilesystem: true
             runAsNonRoot: true
             runAsUser: 1001
             capabilities:
