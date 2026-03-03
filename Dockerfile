@@ -1,4 +1,4 @@
-FROM tomcat:9.0-jdk17-corretto
+FROM tomcat:10.1-jdk17
 ARG BUILD_NUMBER
 
 ENV CATALINA_HOME=/usr/local/tomcat
@@ -35,6 +35,7 @@ USER 1000
 
 EXPOSE 8080
 CMD ["catalina.sh", "run"]
+
 
 
 
