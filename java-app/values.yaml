@@ -9,6 +9,9 @@ service:
   type: LoadBalancer
   port: 8080
 
+monitoring:
+  enabled: true
+
 containerPort: 8080
 
 resources: {}
