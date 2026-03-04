@@ -1,0 +1,25 @@
+{{- if .Values.monitoring.enabled }}
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "java-app.fullname" . }}-monitor
+  namespace: monitoring
+  labels:
+    release: monitoring
+
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "java-app.name" . }}
+
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s
+
+{{- end }}
