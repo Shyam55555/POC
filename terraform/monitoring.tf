@@ -11,7 +11,7 @@ resource "helm_release" "kube_prometheus_stack" {
       value = "http://monitoring-kube-prometheus-prometheus.monitoring:9090"
   }
 
-  timeout = 600
+  timeout = 1800
 
   depends_on = [
     azurerm_kubernetes_cluster.poc21
