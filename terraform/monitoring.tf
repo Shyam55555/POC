@@ -9,6 +9,6 @@ resource "helm_release" "kube_prometheus_stack" {
   timeout = 600
 
   depends_on = [
-    azurerm_kubernetes_cluster.aks
+    azurerm_kubernetes_cluster.poc21
   ]
 }
