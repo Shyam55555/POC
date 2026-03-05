@@ -6,11 +6,6 @@ resource "helm_release" "kube_prometheus_stack" {
   namespace        = "monitoring"
   create_namespace = true
 
-  set {
-      name  = "grafana.datasources.datasources\\.yaml.datasources[0].url"
-      value = "http://monitoring-kube-prometheus-prometheus.monitoring:9090"
-  }
-
   timeout = 1800
 
   depends_on = [
